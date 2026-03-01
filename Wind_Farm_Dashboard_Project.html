@@ -1,0 +1,278 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Wind Farm KPI Dashboard — Shariq Aziz | Vattenfall BA Wind Project</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.0/chart.umd.min.js"></script>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { font-family: 'Segoe UI', Arial, sans-serif; background: #f0f4f8; color: #1a1a2e; }
+
+  header {
+    background: linear-gradient(135deg, #1F4E79 0%, #2E75B6 100%);
+    color: white; padding: 20px 32px;
+    display: flex; align-items: center; justify-content: space-between;
+  }
+  header .title-group h1 { font-size: 22px; font-weight: 700; letter-spacing: 0.5px; }
+  header .title-group p { font-size: 13px; opacity: 0.8; margin-top: 4px; }
+  header .badge { background: rgba(255,255,255,0.2); border-radius: 20px; padding: 6px 14px; font-size: 12px; font-weight: 600; }
+
+  .filters { background: white; padding: 14px 32px; border-bottom: 1px solid #e0e8f0; display: flex; gap: 16px; align-items: center; flex-wrap: wrap; }
+  .filters label { font-size: 13px; font-weight: 600; color: #1F4E79; }
+  .filters select { padding: 6px 12px; border: 1px solid #c5d8ec; border-radius: 6px; font-size: 13px; background: white; cursor: pointer; color: #333; }
+  .filters select:focus { outline: 2px solid #2E75B6; }
+
+  .kpi-row { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; padding: 20px 32px 0; }
+  .kpi-card {
+    background: white; border-radius: 10px; padding: 18px 20px;
+    box-shadow: 0 2px 8px rgba(30,78,121,0.08);
+    border-top: 4px solid #2E75B6;
+  }
+  .kpi-card.green { border-top-color: #27AE60; }
+  .kpi-card.orange { border-top-color: #E67E22; }
+  .kpi-card.teal { border-top-color: #16A085; }
+  .kpi-card .label { font-size: 11px; text-transform: uppercase; letter-spacing: 1px; color: #888; font-weight: 600; }
+  .kpi-card .value { font-size: 30px; font-weight: 700; color: #1F4E79; margin: 6px 0 2px; }
+  .kpi-card .sub { font-size: 12px; color: #27AE60; font-weight: 600; }
+  .kpi-card .sub.warn { color: #E67E22; }
+
+  .charts-grid { display: grid; grid-template-columns: 2fr 1fr; gap: 16px; padding: 16px 32px; }
+  .chart-card { background: white; border-radius: 10px; padding: 20px; box-shadow: 0 2px 8px rgba(30,78,121,0.08); }
+  .chart-card h3 { font-size: 13px; font-weight: 700; color: #1F4E79; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 16px; }
+  .chart-card canvas { max-height: 220px; }
+
+  .bottom-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; padding: 0 32px 32px; }
+
+  table { width: 100%; border-collapse: collapse; font-size: 13px; }
+  thead th { background: #1F4E79; color: white; padding: 10px 12px; text-align: left; font-weight: 600; font-size: 12px; text-transform: uppercase; letter-spacing: 0.5px; }
+  tbody tr { border-bottom: 1px solid #eef2f7; }
+  tbody tr:hover { background: #f5f9ff; }
+  tbody td { padding: 9px 12px; }
+  .status { display: inline-block; padding: 2px 10px; border-radius: 12px; font-size: 11px; font-weight: 700; }
+  .status.good { background: #d4efdf; color: #1e8449; }
+  .status.warn { background: #fdebd0; color: #d35400; }
+  .status.ok { background: #d6eaf8; color: #1a5276; }
+
+  footer { text-align: center; padding: 16px; font-size: 12px; color: #999; }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="title-group">
+    <h1>🌬 Wind Farm KPI Dashboard</h1>
+    <p>BA Wind — Product Integration Analysis | Shariq Aziz — Working Student Application Project</p>
+  </div>
+  <div class="badge">Power BI-Style · 2025</div>
+</header>
+
+<div class="filters">
+  <label>Region:</label>
+  <select id="regionFilter" onchange="updateDashboard()">
+    <option value="all">All Regions</option>
+    <option value="north_sea">North Sea</option>
+    <option value="baltic">Baltic Sea</option>
+    <option value="onshore">Onshore Germany</option>
+  </select>
+  <label>Quarter:</label>
+  <select id="quarterFilter" onchange="updateDashboard()">
+    <option value="all">Full Year 2024</option>
+    <option value="q1">Q1 2024</option>
+    <option value="q2">Q2 2024</option>
+    <option value="q3">Q3 2024</option>
+    <option value="q4">Q4 2024</option>
+  </select>
+  <label>Turbine Status:</label>
+  <select id="statusFilter" onchange="updateDashboard()">
+    <option value="all">All</option>
+    <option value="active">Active Only</option>
+    <option value="maintenance">Maintenance</option>
+  </select>
+</div>
+
+<div class="kpi-row" id="kpiRow">
+  <div class="kpi-card">
+    <div class="label">Total Energy Output</div>
+    <div class="value" id="kpi1">4,820 GWh</div>
+    <div class="sub">↑ 12% vs prior year</div>
+  </div>
+  <div class="kpi-card green">
+    <div class="label">Avg. Capacity Factor</div>
+    <div class="value" id="kpi2">41.3%</div>
+    <div class="sub">Target: 38% ✓</div>
+  </div>
+  <div class="kpi-card orange">
+    <div class="label">Availability Rate</div>
+    <div class="value" id="kpi3">94.7%</div>
+    <div class="sub warn">2 turbines in maintenance</div>
+  </div>
+  <div class="kpi-card teal">
+    <div class="label">CO₂ Avoided (tonnes)</div>
+    <div class="value" id="kpi4">2.4M</div>
+    <div class="sub">Contribution to Fossil Freedom</div>
+  </div>
+</div>
+
+<div class="charts-grid">
+  <div class="chart-card">
+    <h3>Monthly Energy Output by Region (GWh)</h3>
+    <canvas id="outputChart"></canvas>
+  </div>
+  <div class="chart-card">
+    <h3>Capacity Factor Distribution</h3>
+    <canvas id="cfChart"></canvas>
+  </div>
+</div>
+
+<div class="bottom-grid">
+  <div class="chart-card">
+    <h3>Wind Farm Performance Overview</h3>
+    <table>
+      <thead>
+        <tr><th>Farm</th><th>Region</th><th>Output (GWh)</th><th>Cap. Factor</th><th>Status</th></tr>
+      </thead>
+      <tbody id="farmTable"></tbody>
+    </table>
+  </div>
+  <div class="chart-card">
+    <h3>Quarterly Output Trend</h3>
+    <canvas id="trendChart"></canvas>
+  </div>
+</div>
+
+<footer>Wind Farm Data Dashboard · Simulated data for portfolio/application purposes · Shariq Aziz — MSc Information Systems, FAU Erlangen-Nürnberg</footer>
+
+<script>
+const farms = [
+  { name: "Horns Rev Alpha", region: "north_sea", output: 820, cf: 45.2, status: "Active" },
+  { name: "Kriegers Flak", region: "baltic", output: 680, cf: 43.1, status: "Active" },
+  { name: "Egersund Onshore", region: "onshore", output: 310, cf: 34.5, status: "Maintenance" },
+  { name: "Borkum West", region: "north_sea", output: 760, cf: 44.0, status: "Active" },
+  { name: "Rostock Wind Park", region: "baltic", output: 410, cf: 36.2, status: "Active" },
+  { name: "Holstein Wind", region: "onshore", output: 290, cf: 33.8, status: "Maintenance" },
+  { name: "Sandbank Offshore", region: "north_sea", output: 890, cf: 47.3, status: "Active" },
+  { name: "Wikinger South", region: "baltic", output: 660, cf: 41.9, status: "Active" },
+];
+
+const months = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
+const northSeaData = [320,280,360,390,410,440,460,470,430,400,350,310];
+const balticData = [200,180,220,250,270,290,310,300,270,240,210,190];
+const onshoreData = [80,70,90,100,110,120,130,125,110,95,80,75];
+
+let outputChart, cfChart, trendChart;
+
+function buildTable(region, status) {
+  const tbody = document.getElementById('farmTable');
+  let filtered = farms;
+  if (region !== 'all') filtered = filtered.filter(f => f.region === region);
+  if (status === 'active') filtered = filtered.filter(f => f.status === 'Active');
+  if (status === 'maintenance') filtered = filtered.filter(f => f.status === 'Maintenance');
+
+  tbody.innerHTML = filtered.map(f => `
+    <tr>
+      <td><strong>${f.name}</strong></td>
+      <td>${f.region.replace('_', ' ').replace(/\b\w/g, l => l.toUpperCase())}</td>
+      <td>${f.output}</td>
+      <td>${f.cf}%</td>
+      <td><span class="status ${f.status === 'Active' ? 'good' : 'warn'}">${f.status}</span></td>
+    </tr>
+  `).join('');
+}
+
+function updateKPIs(region, quarter) {
+  let multiplier = quarter === 'all' ? 1 : 0.27;
+  let regionMult = region === 'north_sea' ? 0.52 : region === 'baltic' ? 0.38 : region === 'onshore' ? 0.17 : 1;
+  document.getElementById('kpi1').textContent = Math.round(4820 * multiplier * regionMult).toLocaleString() + ' GWh';
+  document.getElementById('kpi2').textContent = (41.3 * (region === 'north_sea' ? 1.07 : region === 'onshore' ? 0.88 : 1)).toFixed(1) + '%';
+  document.getElementById('kpi4').textContent = (2.4 * multiplier * regionMult).toFixed(1) + 'M';
+}
+
+function updateDashboard() {
+  const region = document.getElementById('regionFilter').value;
+  const quarter = document.getElementById('quarterFilter').value;
+  const status = document.getElementById('statusFilter').value;
+  buildTable(region, status);
+  updateKPIs(region, quarter);
+
+  // Filter chart data by quarter
+  let labels, ns, ba, on;
+  if (quarter === 'all') { labels = months; ns = northSeaData; ba = balticData; on = onshoreData; }
+  else {
+    const qMap = { q1: [0,3], q2: [3,6], q3: [6,9], q4: [9,12] };
+    const [s, e] = qMap[quarter];
+    labels = months.slice(s,e); ns = northSeaData.slice(s,e); ba = balticData.slice(s,e); on = onshoreData.slice(s,e);
+  }
+
+  let datasets = [];
+  if (region === 'all' || region === 'north_sea') datasets.push({ label: 'North Sea', data: ns, backgroundColor: 'rgba(31,78,121,0.8)', borderColor: '#1F4E79', borderWidth: 2 });
+  if (region === 'all' || region === 'baltic') datasets.push({ label: 'Baltic Sea', data: ba, backgroundColor: 'rgba(46,117,182,0.8)', borderColor: '#2E75B6', borderWidth: 2 });
+  if (region === 'all' || region === 'onshore') datasets.push({ label: 'Onshore', data: on, backgroundColor: 'rgba(22,160,133,0.8)', borderColor: '#16A085', borderWidth: 2 });
+
+  outputChart.data.labels = labels;
+  outputChart.data.datasets = datasets;
+  outputChart.update();
+}
+
+window.onload = function() {
+  // Output chart
+  outputChart = new Chart(document.getElementById('outputChart'), {
+    type: 'bar',
+    data: {
+      labels: months,
+      datasets: [
+        { label: 'North Sea', data: northSeaData, backgroundColor: 'rgba(31,78,121,0.8)', borderColor: '#1F4E79', borderWidth: 2 },
+        { label: 'Baltic Sea', data: balticData, backgroundColor: 'rgba(46,117,182,0.8)', borderColor: '#2E75B6', borderWidth: 2 },
+        { label: 'Onshore', data: onshoreData, backgroundColor: 'rgba(22,160,133,0.8)', borderColor: '#16A085', borderWidth: 2 }
+      ]
+    },
+    options: {
+      responsive: true, maintainAspectRatio: true,
+      plugins: { legend: { position: 'bottom', labels: { font: { size: 11 } } } },
+      scales: {
+        x: { stacked: true, grid: { display: false } },
+        y: { stacked: true, title: { display: true, text: 'GWh', font: { size: 11 } } }
+      }
+    }
+  });
+
+  // Capacity Factor donut
+  cfChart = new Chart(document.getElementById('cfChart'), {
+    type: 'doughnut',
+    data: {
+      labels: ['North Sea (45%+)', 'Baltic (36-44%)', 'Onshore (<36%)'],
+      datasets: [{ data: [3, 5, 2], backgroundColor: ['#1F4E79', '#2E75B6', '#16A085'], borderWidth: 2 }]
+    },
+    options: {
+      responsive: true, maintainAspectRatio: true,
+      plugins: {
+        legend: { position: 'bottom', labels: { font: { size: 11 } } },
+        tooltip: { callbacks: { label: ctx => ` ${ctx.label}: ${ctx.raw} farms` } }
+      }
+    }
+  });
+
+  // Trend chart
+  trendChart = new Chart(document.getElementById('trendChart'), {
+    type: 'line',
+    data: {
+      labels: ['Q1', 'Q2', 'Q3', 'Q4'],
+      datasets: [
+        { label: '2023', data: [1050, 1180, 1290, 1100], borderColor: '#BDC3C7', backgroundColor: 'rgba(189,195,199,0.1)', tension: 0.4, borderDash: [5,5] },
+        { label: '2024', data: [1150, 1290, 1420, 960], borderColor: '#1F4E79', backgroundColor: 'rgba(31,78,121,0.1)', tension: 0.4, fill: true, pointBackgroundColor: '#1F4E79' }
+      ]
+    },
+    options: {
+      responsive: true, maintainAspectRatio: true,
+      plugins: { legend: { position: 'bottom', labels: { font: { size: 11 } } } },
+      scales: {
+        y: { title: { display: true, text: 'GWh', font: { size: 11 } }, beginAtZero: false }
+      }
+    }
+  });
+
+  buildTable('all', 'all');
+};
+</script>
+</body>
+</html>
